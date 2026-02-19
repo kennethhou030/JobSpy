@@ -8,3 +8,8 @@
 *.pyc
 .env
 dist
+
+# SQLite database files (runtime data, not code)
+*.db
+*.db-shm
+*.db-wal

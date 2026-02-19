@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>JobSpy — Scraper</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0&display=swap" rel="stylesheet"/>
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      colors: { primary: '#bcbdfb', 'bg-light': '#f5f6f8' },
+      fontFamily: { display: ['Plus Jakarta Sans', 'sans-serif'] },
+    }}
+  }
+</script>
+<style>
+  body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f5f6f8; }
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; vertical-align: middle; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:#bcbdfb; cursor:pointer; }
+  input[type=range] { -webkit-appearance:none; height:4px; border-radius:2px; background:#e2e8f0; }
+  .site-pill { display:inline-flex; align-items:center; padding:8px 18px; border-radius:9999px;
+    font-size:14px; font-weight:700; border:2px solid #e2e8f0; background:#f8f9fa;
+    color:#64748b; cursor:pointer; transition:all .15s; user-select:none; }
+  .site-pill:hover { border-color:#bcbdfb; color:#4f46e5; }
+  .site-pill.active { border-color:#bcbdfb; background:#ededfe; color:#4f46e5; }
+  .spinner { border:3px solid #e2e8f0; border-top:3px solid #bcbdfb; border-radius:50%;
+    width:22px; height:22px; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- ── Header ────────────────────────────────────────────────────────────── -->
+<header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-indigo-100 px-6 py-3">
+  <div class="max-w-7xl mx-auto flex items-center justify-between">
+    <a href="index.html" class="flex items-center gap-2">
+      <div class="bg-[#bcbdfb] p-1.5 rounded-lg shadow-lg shadow-[#bcbdfb]/30">
+        <span class="material-symbols-outlined text-white text-xl block">search_insights</span>
+      </div>
+      <span class="text-lg font-black text-slate-800">JobSpy</span>
+    </a>
+    <nav class="hidden md:flex items-center gap-8">
+      <a href="index.html"   class="text-sm font-semibold text-slate-500 hover:text-[#bcbdfb] transition-colors">Dashboard</a>
+      <a href="scraper.html" class="text-sm font-bold text-[#bcbdfb] border-b-2 border-[#bcbdfb] pb-0.5">Scraper</a>
+      <a href="history.html" class="text-sm font-semibold text-slate-500 hover:text-[#bcbdfb] transition-colors">History</a>
+      <a href="#"            class="text-sm font-semibold text-slate-500 hover:text-[#bcbdfb] transition-colors">Settings</a>
+    </nav>
+    <div class="flex items-center gap-3">
+      <button class="p-2 text-slate-400 hover:text-[#bcbdfb] hover:bg-indigo-50 rounded-lg transition-all">
+        <span class="material-symbols-outlined">notifications</span>
+      </button>
+      <div class="w-9 h-9 rounded-full bg-gradient-to-br from-[#bcbdfb] to-indigo-400 flex items-center justify-center text-white font-bold text-sm">A</div>
+    </div>
+  </div>
+</header>
+
+<!-- ── Main ───────────────────────────────────────────────────────────────── -->
+<main class="max-w-7xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+  <!-- Sidebar: Recent Scrapes -->
+  <aside class="lg:col-span-3">
+    <div class="bg-white rounded-2xl border border-indigo-50 shadow-sm p-6 sticky top-24">
+      <div class="flex items-center gap-2 mb-5">
+        <span class="material-symbols-outlined text-[#bcbdfb]">history</span>
+        <h2 class="font-bold text-slate-800">Recent Scrapes</h2>
+      </div>
+      <div id="recent-list" class="space-y-3 max-h-96 overflow-y-auto pr-1">
+        <div class="text-center py-8 text-slate-400">
+          <span class="material-symbols-outlined text-4xl text-slate-200 block mb-2">history</span>
+          <p class="text-sm">No recent scrapes</p>
+        </div>
+      </div>
+      <a href="history.html"
+        class="block w-full mt-5 py-2 text-xs font-bold text-[#bcbdfb] border border-[#bcbdfb]/30 rounded-xl hover:bg-indigo-50 transition-colors uppercase tracking-wider text-center">
+        View All History
+      </a>
+    </div>
+  </aside>
+
+  <!-- Form -->
+  <div class="lg:col-span-9 space-y-6">
+    <div>
+      <h2 class="text-3xl font-black text-slate-900 tracking-tight">Scrape Request</h2>
+      <p class="text-slate-500 mt-1">Configure your mission parameters for a precise job search.</p>
+    </div>
+
+    <!-- Result banner (hidden until scrape completes) -->
+    <div id="result-banner" class="hidden bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="material-symbols-outlined text-emerald-500">check_circle</span>
+        <div>
+          <p class="font-bold text-emerald-800" id="banner-title">Scrape complete!</p>
+          <p class="text-sm text-emerald-600" id="banner-msg"></p>
+        </div>
+      </div>
+      <a href="index.html"
+        class="text-sm font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-4 py-2 rounded-xl transition-colors">
+        View Results →
+      </a>
+    </div>
+
+    <!-- Error banner -->
+    <div id="error-banner" class="hidden bg-red-50 border border-red-200 rounded-2xl px-5 py-4 flex items-center gap-3">
+      <span class="material-symbols-outlined text-red-500">error</span>
+      <p class="text-sm text-red-700 font-medium" id="error-msg"></p>
+    </div>
+
+    <form id="scrape-form" class="space-y-5" onsubmit="return false">
+
+      <!-- Group 1: Basic Info -->
+      <div class="bg-white rounded-2xl border border-indigo-50 shadow-sm overflow-hidden">
+        <div class="bg-gradient-to-r from-indigo-50 to-transparent px-6 py-4 flex items-center gap-4 border-b border-indigo-50">
+          <div class="bg-white p-2 rounded-xl shadow-sm">
+            <span class="material-symbols-outlined text-[#bcbdfb]">person_search</span>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-800">Basic Info</h3>
+            <p class="text-xs text-slate-500">The core details of your search</p>
+          </div>
+        </div>
+        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="space-y-2">
+            <label class="text-sm font-bold text-slate-700">Job Title / Keyword <span class="text-red-400">*</span></label>
+            <input id="f-search-term" type="text" placeholder="e.g. Product Designer"
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#bcbdfb]/50 focus:border-[#bcbdfb] outline-none transition-all text-sm"/>
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm font-bold text-slate-700">Location</label>
+            <div class="relative">
+              <input id="f-location" type="text" placeholder="e.g. Remote or Austin, TX"
+                class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#bcbdfb]/50 focus:border-[#bcbdfb] outline-none transition-all text-sm"/>
+              <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">location_on</span>
+            </div>
+          </div>
+          <div class="md:col-span-2 space-y-3">
+            <label class="text-sm font-bold text-slate-700">Job Sites to Scrape <span class="text-red-400">*</span></label>
+            <div id="site-pills" class="flex flex-wrap gap-2">
+              <!-- Populated by JS from GET /api/sites -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Group 2: Filters -->
+      <div class="bg-white rounded-2xl border border-indigo-50 shadow-sm overflow-hidden">
+        <div class="bg-gradient-to-r from-indigo-50 to-transparent px-6 py-4 flex items-center gap-4 border-b border-indigo-50">
+          <div class="bg-white p-2 rounded-xl shadow-sm">
+            <span class="material-symbols-outlined text-[#bcbdfb]">filter_alt</span>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-800">Filters</h3>
+            <p class="text-xs text-slate-500">Narrow down your results</p>
+          </div>
+        </div>
+        <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div class="space-y-3">
+            <div class="flex justify-between items-center">
+              <label class="text-sm font-bold text-slate-700">Distance</label>
+              <span id="distance-label" class="text-xs font-bold text-[#bcbdfb]">50 miles</span>
+            </div>
+            <input id="f-distance" type="range" min="0" max="200" step="5" value="50"
+              class="w-full accent-[#bcbdfb]" oninput="document.getElementById('distance-label').textContent=this.value+' miles'"/>
+            <div class="flex justify-between text-xs text-slate-400"><span>0</span><span>200 mi</span></div>
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm font-bold text-slate-700">Job Type</label>
+            <select id="f-job-type"
+              class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#bcbdfb]/50 outline-none text-sm">
+              <option value="">Any Type</option>
+              <!-- Populated by JS from GET /api/job_types -->
+            </select>
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm font-bold text-slate-700">Remote Policy</label>
+            <div class="flex bg-slate-100 p-1 rounded-xl">
+              <button type="button" class="remote-tab flex-1 text-xs font-bold py-2 rounded-lg bg-white text-[#bcbdfb] shadow-sm" data-val="">Any</button>
+              <button type="button" class="remote-tab flex-1 text-xs font-bold py-2 rounded-lg text-slate-500" data-val="true">Remote</button>
+              <button type="button" class="remote-tab flex-1 text-xs font-bold py-2 rounded-lg text-slate-500" data-val="false">On-site</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Group 3: Advanced -->
+      <div class="bg-white rounded-2xl border border-indigo-50 shadow-sm overflow-hidden">
+        <div class="bg-gradient-to-r from-indigo-50 to-transparent px-6 py-4 flex items-center gap-4 border-b border-indigo-50">
+          <div class="bg-white p-2 rounded-xl shadow-sm">
+            <span class="material-symbols-outlined text-[#bcbdfb]">settings_suggest</span>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-800">Advanced</h3>
+            <p class="text-xs text-slate-500">Fine-tune the scraping engine</p>
+          </div>
+        </div>
+        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <label class="text-sm font-bold text-slate-700">Results Wanted</label>
+              <p class="text-xs text-slate-500">Maximum number of jobs to find</p>
+            </div>
+            <input id="f-results-wanted" type="number" value="25" min="1" max="500"
+              class="w-24 px-3 py-2 rounded-xl border border-slate-200 text-center font-bold text-[#bcbdfb] text-sm focus:ring-2 focus:ring-[#bcbdfb]/50 outline-none"/>
+          </div>
+          <div class="flex items-center justify-between">
+            <div>
+              <label class="text-sm font-bold text-slate-700">Hours Old</label>
+              <p class="text-xs text-slate-500">Jobs posted within X hours</p>
+            </div>
+            <input id="f-hours-old" type="number" placeholder="Any" min="1"
+              class="w-24 px-3 py-2 rounded-xl border border-slate-200 text-center font-bold text-[#bcbdfb] text-sm focus:ring-2 focus:ring-[#bcbdfb]/50 outline-none"/>
+          </div>
+          <div class="flex items-center justify-between">
+            <div>
+              <label class="text-sm font-bold text-slate-700">Country (Indeed)</label>
+              <p class="text-xs text-slate-500">Domain for Indeed & Glassdoor</p>
+            </div>
+            <select id="f-country" class="w-36 text-sm border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-[#bcbdfb]/50 outline-none">
+              <option value="usa">USA</option>
+              <option value="uk">UK</option>
+              <option value="canada">Canada</option>
+              <option value="australia">Australia</option>
+              <option value="germany">Germany</option>
+              <option value="india">India</option>
+              <option value="france">France</option>
+              <option value="singapore">Singapore</option>
+            </select>
+          </div>
+          <div class="flex items-center justify-between">
+            <div>
+              <label class="text-sm font-bold text-slate-700">Annual Salary</label>
+              <p class="text-xs text-slate-500">Normalise all salaries to yearly</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input id="f-annual-salary" type="checkbox" class="sr-only peer" checked/>
+              <div class="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#bcbdfb]"></div>
+            </label>
+          </div>
+          <div class="md:col-span-2 pt-4 border-t border-slate-100 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="bg-yellow-100 text-yellow-600 p-2 rounded-full">
+                <span class="material-symbols-outlined text-sm">bolt</span>
+              </div>
+              <div>
+                <label class="text-sm font-bold text-slate-700">Easy Apply Only</label>
+                <p class="text-xs text-slate-500">Only scrape jobs with direct one-click applications</p>
+              </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input id="f-easy-apply" type="checkbox" class="sr-only peer"/>
+              <div class="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#bcbdfb]"></div>
+            </label>
+          </div>
+          <div class="md:col-span-2 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="bg-blue-100 text-blue-600 p-2 rounded-full">
+                <span class="material-symbols-outlined text-sm">description</span>
+              </div>
+              <div>
+                <label class="text-sm font-bold text-slate-700">Fetch LinkedIn Descriptions</label>
+                <p class="text-xs text-slate-500">Slower but gets full job details from LinkedIn</p>
+              </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input id="f-linkedin-desc" type="checkbox" class="sr-only peer"/>
+              <div class="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#bcbdfb]"></div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Launch Button -->
+      <div class="flex flex-col items-center pt-4">
+        <button id="btn-launch" type="submit"
+          class="group flex items-center gap-4 bg-[#bcbdfb] hover:bg-indigo-400 text-slate-900 px-12 py-5 rounded-2xl shadow-xl shadow-[#bcbdfb]/40 transition-all hover:scale-[1.02] active:scale-95 font-black text-xl uppercase tracking-widest">
+          <span id="btn-launch-text">Launch Scraper</span>
+          <div id="btn-launch-icon" class="bg-white/40 p-2 rounded-xl group-hover:rotate-12 transition-transform">
+            <span class="material-symbols-outlined block">rocket_launch</span>
+          </div>
+          <div id="btn-launch-spinner" class="hidden">
+            <div class="spinner"></div>
+          </div>
+        </button>
+        <p id="launch-status" class="mt-4 text-xs text-slate-400 font-medium">Estimated time: ~2–5 minutes depending on criteria</p>
+      </div>
+
+    </form>
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let selectedSites = new Set(['linkedin', 'indeed']);
+let isRemoteVal = '';   // '' | 'true' | 'false'
+
+// ── Init ───────────────────────────────────────────────────────────────────
+async function init() {
+  await Promise.all([loadSites(), loadJobTypes(), loadRecentSessions()]);
+  wireForm();
+
+  // Prefill from URL params (e.g. re-run from history)
+  const p = new URLSearchParams(location.search);
+  if (p.get('search_term'))    document.getElementById('f-search-term').value = p.get('search_term');
+  if (p.get('location'))       document.getElementById('f-location').value    = p.get('location');
+  if (p.get('results_wanted')) document.getElementById('f-results-wanted').value = p.get('results_wanted');
+  if (p.get('hours_old'))      document.getElementById('f-hours-old').value   = p.get('hours_old');
+  if (p.get('site_names')) {
+    selectedSites = new Set(p.get('site_names').split(','));
+    renderSitePills();
+  }
+}
+
+async function loadSites() {
+  try {
+    const sites = await API.fetchSites();
+    renderSitePillsFromList(sites);
+  } catch {
+    // Fallback
+    renderSitePillsFromList(['linkedin','indeed','glassdoor','google','zip_recruiter','bayt','naukri','bdjobs']);
+  }
+}
+
+function renderSitePillsFromList(sites) {
+  const labels = { linkedin:'LinkedIn', indeed:'Indeed', glassdoor:'Glassdoor',
+    google:'Google Jobs', zip_recruiter:'ZipRecruiter', bayt:'Bayt', naukri:'Naukri', bdjobs:'BDJobs' };
+  const container = document.getElementById('site-pills');
+  container.innerHTML = sites.map(s => `
+    <label class="site-pill ${selectedSites.has(s) ? 'active' : ''}" data-site="${s}">
+      <input type="checkbox" class="hidden" ${selectedSites.has(s) ? 'checked' : ''}/>
+      ${labels[s] || s}
+    </label>
+  `).join('');
+  container.querySelectorAll('.site-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      const site = pill.dataset.site;
+      if (selectedSites.has(site)) { selectedSites.delete(site); pill.classList.remove('active'); }
+      else { selectedSites.add(site); pill.classList.add('active'); }
+    });
+  });
+}
+function renderSitePills() {
+  document.querySelectorAll('.site-pill').forEach(p => {
+    p.classList.toggle('active', selectedSites.has(p.dataset.site));
+  });
+}
+
+async function loadJobTypes() {
+  try {
+    const types = await API.fetchJobTypes();
+    const sel = document.getElementById('f-job-type');
+    types.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = fmt.jobTypeLabel(t) || t;
+      sel.appendChild(opt);
+    });
+  } catch {}
+}
+
+async function loadRecentSessions() {
+  try {
+    const data = await API.fetchSessions(5, 0);
+    const list = document.getElementById('recent-list');
+    if (!data.sessions.length) return;
+    list.innerHTML = data.sessions.map(s => `
+      <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-[#bcbdfb]/50 transition-all cursor-pointer"
+           onclick="rerunSession(${JSON.stringify(s).replace(/"/g,"'")})">
+        <p class="text-sm font-bold text-slate-800 truncate">${s.search_term || '(no keyword)'}</p>
+        <div class="flex items-center gap-1 mt-0.5">
+          <span class="material-symbols-outlined text-[10px] text-slate-400">location_on</span>
+          <p class="text-xs text-slate-500 truncate">${s.location || 'Any location'}</p>
+        </div>
+        <div class="mt-2 flex items-center justify-between">
+          <span class="text-[10px] px-2 py-0.5 bg-indigo-100 text-indigo-600 font-bold rounded-full">${s.site_names || '?'}</span>
+          <button class="text-[#bcbdfb] hover:bg-[#bcbdfb]/10 p-1 rounded transition-colors">
+            <span class="material-symbols-outlined text-xs">refresh</span>
+          </button>
+        </div>
+      </div>
+    `).join('');
+  } catch {}
+}
+
+function rerunSession(s) {
+  if (s.search_term) document.getElementById('f-search-term').value = s.search_term;
+  if (s.location)    document.getElementById('f-location').value    = s.location;
+  if (s.results_wanted) document.getElementById('f-results-wanted').value = s.results_wanted;
+  if (s.hours_old)   document.getElementById('f-hours-old').value   = s.hours_old;
+  if (s.site_names) {
+    selectedSites = new Set(s.site_names.split(','));
+    renderSitePills();
+  }
+}
+
+function wireForm() {
+  // Remote tabs
+  document.querySelectorAll('.remote-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.remote-tab').forEach(b => {
+        b.classList.remove('bg-white','text-[#bcbdfb]','shadow-sm');
+        b.classList.add('text-slate-500');
+      });
+      btn.classList.add('bg-white','text-[#bcbdfb]','shadow-sm');
+      btn.classList.remove('text-slate-500');
+      isRemoteVal = btn.dataset.val;
+    });
+  });
+
+  document.getElementById('btn-launch').addEventListener('click', runScrape);
+  document.getElementById('f-search-term').addEventListener('keydown', e => {
+    if (e.key === 'Enter') runScrape();
+  });
+}
+
+// ── Submit ─────────────────────────────────────────────────────────────────
+async function runScrape() {
+  const term = document.getElementById('f-search-term').value.trim();
+  if (!term) {
+    document.getElementById('f-search-term').focus();
+    document.getElementById('f-search-term').classList.add('border-red-400');
+    return;
+  }
+  document.getElementById('f-search-term').classList.remove('border-red-400');
+
+  if (!selectedSites.size) {
+    alert('Please select at least one job site.');
+    return;
+  }
+
+  setLoading(true);
+  hideAll();
+
+  const easyApply = document.getElementById('f-easy-apply').checked;
+  const remoteMap = { '': undefined, 'true': true, 'false': false };
+
+  const params = {
+    site_name:                [...selectedSites],
+    search_term:              term,
+    location:                 document.getElementById('f-location').value.trim() || undefined,
+    distance:                 parseInt(document.getElementById('f-distance').value) || 50,
+    is_remote:                remoteMap[isRemoteVal] ?? false,
+    job_type:                 document.getElementById('f-job-type').value || undefined,
+    easy_apply:               easyApply || undefined,
+    results_wanted:           parseInt(document.getElementById('f-results-wanted').value) || 25,
+    country_indeed:           document.getElementById('f-country').value || 'usa',
+    hours_old:                parseInt(document.getElementById('f-hours-old').value) || undefined,
+    enforce_annual_salary:    document.getElementById('f-annual-salary').checked,
+    linkedin_fetch_description: document.getElementById('f-linkedin-desc').checked,
+    description_format:       'markdown',
+  };
+
+  try {
+    const data = await API.scrapeJobs(params);
+    setLoading(false);
+    showSuccess(data.total_found, data.total_saved);
+    await loadRecentSessions();
+  } catch (e) {
+    setLoading(false);
+    showError(e.message);
+  }
+}
+
+function setLoading(on) {
+  document.getElementById('btn-launch').disabled = on;
+  document.getElementById('btn-launch-text').textContent = on ? 'Scraping...' : 'Launch Scraper';
+  document.getElementById('btn-launch-icon').classList.toggle('hidden', on);
+  document.getElementById('btn-launch-spinner').classList.toggle('hidden', !on);
+  document.getElementById('launch-status').textContent = on
+    ? 'Scraping in progress — this may take 2–5 minutes…'
+    : 'Estimated time: ~2–5 minutes depending on criteria';
+}
+function hideAll() {
+  document.getElementById('result-banner').classList.add('hidden');
+  document.getElementById('error-banner').classList.add('hidden');
+}
+function showSuccess(found, saved) {
+  document.getElementById('banner-title').textContent = `Scrape complete! Found ${found} jobs.`;
+  document.getElementById('banner-msg').textContent   = `${saved} jobs saved to the database.`;
+  document.getElementById('result-banner').classList.remove('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function showError(msg) {
+  document.getElementById('error-msg').textContent = 'Scrape failed: ' + msg;
+  document.getElementById('error-banner').classList.remove('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+init();
+</script>
+</body>
+</html>
