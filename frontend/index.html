@@ -289,8 +289,11 @@ let lastScrapeTime = null;
 // ── Init ───────────────────────────────────────────────────────────────────
 async function init() {
   // Wire site chips toggle
+  // e.preventDefault() prevents the browser from firing a second click on the
+  // hidden checkbox (which would bubble back up and double-toggle the state).
   document.querySelectorAll('.site-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
+    chip.addEventListener('click', (e) => {
+      e.preventDefault();
       chip.classList.toggle('selected');
       chip.querySelector('input').checked = chip.classList.contains('selected');
     });

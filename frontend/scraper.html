@@ -237,6 +237,14 @@
               <div class="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#bcbdfb]"></div>
             </label>
           </div>
+          <div class="md:col-span-2 flex items-center justify-between">
+            <div>
+              <label class="text-sm font-bold text-slate-700">Google Search Override</label>
+              <p class="text-xs text-slate-500">Custom query for Google Jobs only — leave blank to auto-build from the fields above</p>
+            </div>
+            <input id="f-google-search-term" type="text" placeholder="e.g. software engineer jobs in NYC remote"
+              class="w-72 px-3 py-2 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-[#bcbdfb]/50 outline-none"/>
+          </div>
           <div class="md:col-span-2 pt-4 border-t border-slate-100 flex items-center justify-between">
             <div class="flex items-center gap-3">
               <div class="bg-yellow-100 text-yellow-600 p-2 rounded-full">
@@ -333,7 +341,8 @@ function renderSitePillsFromList(sites) {
     </label>
   `).join('');
   container.querySelectorAll('.site-pill').forEach(pill => {
-    pill.addEventListener('click', () => {
+    pill.addEventListener('click', (e) => {
+      e.preventDefault();
       const site = pill.dataset.site;
       if (selectedSites.has(site)) { selectedSites.delete(site); pill.classList.remove('active'); }
       else { selectedSites.add(site); pill.classList.add('active'); }
@@ -438,6 +447,7 @@ async function runScrape() {
   const params = {
     site_name:                [...selectedSites],
     search_term:              term,
+    google_search_term:       document.getElementById('f-google-search-term').value.trim() || undefined,
     location:                 document.getElementById('f-location').value.trim() || undefined,
     distance:                 parseInt(document.getElementById('f-distance').value) || 50,
     is_remote:                remoteMap[isRemoteVal] ?? false,
