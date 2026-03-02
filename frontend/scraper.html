@@ -335,14 +335,12 @@ function renderSitePillsFromList(sites) {
     google:'Google Jobs', zip_recruiter:'ZipRecruiter', bayt:'Bayt', naukri:'Naukri', bdjobs:'BDJobs' };
   const container = document.getElementById('site-pills');
   container.innerHTML = sites.map(s => `
-    <label class="site-pill ${selectedSites.has(s) ? 'active' : ''}" data-site="${s}">
-      <input type="checkbox" class="hidden" ${selectedSites.has(s) ? 'checked' : ''}/>
+    <span class="site-pill ${selectedSites.has(s) ? 'active' : ''}" data-site="${s}">
       ${labels[s] || s}
-    </label>
+    </span>
   `).join('');
   container.querySelectorAll('.site-pill').forEach(pill => {
-    pill.addEventListener('click', (e) => {
-      e.preventDefault();
+    pill.addEventListener('click', () => {
       const site = pill.dataset.site;
       if (selectedSites.has(site)) { selectedSites.delete(site); pill.classList.remove('active'); }
       else { selectedSites.add(site); pill.classList.add('active'); }

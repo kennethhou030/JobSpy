@@ -82,11 +82,11 @@
     <!-- Site chips -->
     <div class="flex flex-wrap gap-2 mt-3 items-center">
       <span class="text-xs text-slate-400 font-semibold mr-1">SITES:</span>
-      <label id="chip-linkedin"   class="site-chip selected" data-site="linkedin">   <input type="checkbox" class="hidden" checked/> LinkedIn</label>
-      <label id="chip-indeed"     class="site-chip selected" data-site="indeed">     <input type="checkbox" class="hidden" checked/> Indeed</label>
-      <label id="chip-glassdoor"  class="site-chip"          data-site="glassdoor">  <input type="checkbox" class="hidden"/> Glassdoor</label>
-      <label id="chip-google"     class="site-chip"          data-site="google">     <input type="checkbox" class="hidden"/> Google Jobs</label>
-      <label id="chip-zip"        class="site-chip"          data-site="zip_recruiter"><input type="checkbox" class="hidden"/> ZipRecruiter</label>
+      <span id="chip-linkedin"   class="site-chip selected" data-site="linkedin">LinkedIn</span>
+      <span id="chip-indeed"     class="site-chip selected" data-site="indeed">Indeed</span>
+      <span id="chip-glassdoor"  class="site-chip"          data-site="glassdoor">Glassdoor</span>
+      <span id="chip-google"     class="site-chip"          data-site="google">Google Jobs</span>
+      <span id="chip-zip"        class="site-chip"          data-site="zip_recruiter">ZipRecruiter</span>
       <div class="ml-auto flex items-center gap-2">
         <button id="btn-more-filters" class="text-xs font-bold text-slate-500 hover:text-[#bcbdfb] flex items-center gap-1 border border-slate-200 px-3 py-1.5 rounded-lg transition-colors">
           <span class="material-symbols-outlined text-sm">tune</span> More Filters
@@ -289,14 +289,8 @@ let lastScrapeTime = null;
 // ── Init ───────────────────────────────────────────────────────────────────
 async function init() {
   // Wire site chips toggle
-  // e.preventDefault() prevents the browser from firing a second click on the
-  // hidden checkbox (which would bubble back up and double-toggle the state).
   document.querySelectorAll('.site-chip').forEach(chip => {
-    chip.addEventListener('click', (e) => {
-      e.preventDefault();
-      chip.classList.toggle('selected');
-      chip.querySelector('input').checked = chip.classList.contains('selected');
-    });
+    chip.addEventListener('click', () => chip.classList.toggle('selected'));
   });
 
   // More filters toggle
