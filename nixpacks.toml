@@ -2,7 +2,7 @@
 # the install phase. We only need to add the spaCy model download.
 
 [phases.build]
-cmds = ["python -m spacy download en_core_web_sm"]
+cmds = ["python -m spacy download en_core_web_md"]
 
 [start]
 cmd = "uvicorn api.main:app --host 0.0.0.0 --port $PORT"
