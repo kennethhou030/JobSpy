@@ -33,6 +33,11 @@ pdfplumber = ">=0.10"
 python-docx = ">=1.1"
 anthropic = ">=0.25"
 python-dotenv = ">=1.0"
+fastapi = ">=0.110"
+uvicorn = {version = ">=0.29", extras = ["standard"]}
+sqlalchemy = ">=2.0"
+python-multipart = ">=0.0.9"
+psycopg2-binary = ">=2.9"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"
