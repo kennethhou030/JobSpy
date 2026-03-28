@@ -6,6 +6,7 @@ import requests
 from typing import Tuple
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.parse import quote
 
 from jobspy.glassdoor.constant import fallback_token, query_template, headers
 from jobspy.glassdoor.util import (
@@ -258,7 +259,7 @@ class Glassdoor(Scraper):
     def _get_location(self, location: str, is_remote: bool) -> (int, str):
         if not location or is_remote:
             return "11047", "STATE"  # remote options
-        url = f"{self.base_url}/findPopularLocationAjax.htm?maxLocationsToReturn=10&term={location}"
+        url = f"{self.base_url}/findPopularLocationAjax.htm?maxLocationsToReturn=10&term={quote(location)}"
         res = self.session.get(url)
         if res.status_code != 200:
             if res.status_code == 429:

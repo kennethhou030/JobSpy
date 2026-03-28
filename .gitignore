@@ -13,3 +13,5 @@ dist
 *.db
 *.db-shm
 *.db-wal
+logs/
+data/resumes/

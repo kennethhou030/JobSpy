@@ -48,6 +48,37 @@ window.API = {
 
   getJob(id)    { return this._get(`/api/jobs/${encodeURIComponent(id)}`); },
   deleteJob(id) { return this._delete(`/api/jobs/${encodeURIComponent(id)}`); },
+
+  uploadResume(formData) {
+    return fetch(this.BASE + '/api/resume/upload', {
+      method: 'POST',
+      body: formData,
+    }).then(r => r.json());
+  },
+  getResume() {
+    return fetch(this.BASE + '/api/resume').then(r => {
+      if (r.status === 404) return null;
+      return r.json();
+    });
+  },
+  deleteResume() {
+    return fetch(this.BASE + '/api/resume', { method: 'DELETE' }).then(r => r.json());
+  },
+
+  generateCoverLetter(jobId) {
+    return fetch(this.BASE + `/api/cover-letter/${encodeURIComponent(jobId)}`, {
+      method: 'POST',
+    }).then(r => r.json());
+  },
+  getCoverLetter(jobId) {
+    return fetch(this.BASE + `/api/cover-letter/${encodeURIComponent(jobId)}`).then(r => {
+      if (r.status === 404) return null;
+      return r.json();
+    });
+  },
+  listCoverLetters() {
+    return fetch(this.BASE + '/api/cover-letters').then(r => r.json());
+  },
 };
 
 // ── Shared helpers ──────────────────────────────────────────────────────────

@@ -272,6 +272,10 @@ class JobPost(BaseModel):
     # LinkedIn only atm
     job_function: str | None = None
 
+    # NLP-extracted (all platforms)
+    required_skills: list[str] = []
+    preferred_skills: list[str] = []
+
     # Naukri specific
     skills: list[str] | None = None  #from tagsAndSkills
     experience_range: str | None = None  #from experienceText

@@ -61,7 +61,34 @@ class Naukri(Scraper):
         self.session.headers.update(naukri_headers)
         self.scraper_input = None
         self.country = "India"  #naukri is india-focused by default
+        self._refresh_nkparam()
         log.info("Naukri scraper initialized")
+
+    def _refresh_nkparam(self) -> None:
+        """
+        Visits the Naukri homepage to acquire a fresh session cookie and
+        extracts the Nkparam token from the page JavaScript if present.
+        Falls back to the hardcoded constant if extraction fails.
+        """
+        try:
+            self.session.headers.update({
+                "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            })
+            res = self.session.get("https://www.naukri.com/", timeout=15)
+            # Try to extract Nkparam from inline JS (e.g. window.__nkParam = "...")
+            match = re.search(r'["\']Nkparam["\']\s*:\s*["\']([^"\']+)["\']', res.text)
+            if not match:
+                match = re.search(r'nkParam\s*[=:]\s*["\']([A-Za-z0-9+/=]{20,})["\']', res.text)
+            if match:
+                self.session.headers["Nkparam"] = match.group(1)
+                log.info("Nkparam refreshed from homepage")
+            else:
+                log.info("Nkparam not found in page; using hardcoded fallback")
+        except Exception as e:
+            log.warning(f"Could not refresh Nkparam: {e}")
+        finally:
+            # Restore the API accept header for subsequent JSON requests
+            self.session.headers.update({"accept": "application/json"})
 
     def scrape(self, scraper_input: ScraperInput) -> JobResponse:
         """

@@ -146,6 +146,10 @@ class JobRecord(BaseModel):
     company_num_employees: Optional[str] = None
     company_revenue: Optional[str] = None
     company_description: Optional[str] = None
+    required_skills: list[str] = []
+    preferred_skills: list[str] = []
+    match_score: Optional[float] = None
+    skill_gap: Optional[dict] = None
     skills: Optional[str] = None
     experience_range: Optional[str] = None
     company_rating: Optional[float] = None
@@ -165,7 +169,7 @@ class ScrapeResponse(BaseModel):
 
 class JobListResponse(BaseModel):
     """Response from GET /api/jobs."""
-    total: int = Field(description="Number of records in this page")
+    total: int = Field(description="Total number of matching jobs across all pages")
     jobs: list[dict[str, Any]]
 
 

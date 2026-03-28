@@ -37,6 +37,18 @@ class BaytScraper(Scraper):
         self.session = create_session(
             proxies=self.proxies, ca_cert=self.ca_cert, is_tls=False, has_retry=True
         )
+        self.session.headers.update({
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Referer": "https://www.bayt.com/",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        })
+        # Warm up the session to acquire cookies before searching
+        try:
+            self.session.get(self.base_url, timeout=10)
+        except Exception:
+            pass
         job_list: list[JobPost] = []
         page = 1
         results_wanted = (
@@ -84,9 +96,11 @@ class BaytScraper(Scraper):
     def _fetch_jobs(self, query: str, page: int) -> list | None:
         """
         Grabs the job results for the given query and page number.
+        Bayt URLs use lowercase hyphen-separated slugs, e.g. product-designer-jobs
         """
         try:
-            url = f"{self.base_url}/en/international/jobs/{query}-jobs/?page={page}"
+            slug = query.lower().replace(" ", "-")
+            url = f"{self.base_url}/en/international/jobs/{slug}-jobs/?page={page}"
             response = self.session.get(url)
             response.raise_for_status()
             soup = BeautifulSoup(response.text, "html.parser")

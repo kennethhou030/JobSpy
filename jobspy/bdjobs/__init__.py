@@ -58,11 +58,16 @@ class BDJobs(Scraper):
             is_tls=False,
             has_retry=True,
             delay=5,
-            clear_cookies=True,
+            clear_cookies=False,   # must stay False so redirect cookies persist
         )
         self.session.headers.update(headers)
         self.scraper_input = None
         self.country = "bangladesh"
+        # Warm up the session so BDJobs sets its session cookie before searching
+        try:
+            self.session.get(self.base_url, timeout=10, allow_redirects=True)
+        except Exception:
+            pass
 
     def scrape(self, scraper_input: ScraperInput) -> JobResponse:
         """
@@ -95,6 +100,7 @@ class BDJobs(Scraper):
                     self.search_url,
                     params=params,
                     timeout=getattr(scraper_input, "request_timeout", 60),
+                    allow_redirects=True,
                 )
 
                 if response.status_code != 200:
