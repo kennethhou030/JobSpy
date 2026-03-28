@@ -3,7 +3,7 @@
  * All pages include this file and use window.API.*
  */
 window.API = {
-  BASE: 'http://localhost:8000',
+  BASE: window.location.origin,
 
   async _get(path) {
     const res = await fetch(this.BASE + path);
