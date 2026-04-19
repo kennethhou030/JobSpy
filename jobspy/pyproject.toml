@@ -1,0 +1,45 @@
+[build-system]
+requires = [ "poetry-core",]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "python-jobspy"
+version = "1.1.82"
+description = "Job scraper for LinkedIn, Indeed, Glassdoor, ZipRecruiter & Bayt"
+authors = ["Cullen Watson <cullen@cullenwatson.com>", "Zachary Hampton <zachary@zacharysproducts.com>"]
+homepage = "https://github.com/cullenwatson/JobSpy"
+readme = "README.md"
+keywords = [ "jobs-scraper", "linkedin", "indeed", "glassdoor", "ziprecruiter", "bayt", "naukri"]
+[[tool.poetry.packages]]
+include = "jobspy"
+
+[tool.black]
+line-length = 88
+
+[tool.poetry.dependencies]
+python = "^3.10"
+requests = "^2.31.0"
+beautifulsoup4 = "^4.12.2"
+pandas = "^2.1.0"
+numpy = ">=1.26.0"
+pydantic = "^2.3.0"
+tls-client = "^1.0.1"
+markdownify = "^1.1.0"
+regex = "^2024.4.28"
+spacy = ">=3.7"
+scikit-learn = ">=1.4"
+pypdf = ">=4.0"
+pdfplumber = ">=0.10"
+python-docx = ">=1.1"
+anthropic = ">=0.25"
+python-dotenv = ">=1.0"
+fastapi = ">=0.110"
+uvicorn = {version = ">=0.29", extras = ["standard"]}
+sqlalchemy = ">=2.0"
+python-multipart = ">=0.0.9"
+psycopg2-binary = ">=2.9"
+
+[tool.poetry.group.dev.dependencies]
+jupyter = "^1.0.0"
+black = "*"
+pre-commit = "*"
