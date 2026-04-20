@@ -17,6 +17,8 @@ from jobspy.nlp.resume_parser import (
     parse_languages,
     calculate_experience_years,
     RE_DATE_RANGE,
+    _fix_concatenated_words,
+    _parse_single_job_entry,
 )
 
 errors = []
@@ -144,6 +146,52 @@ check("parses 3 certs", len(certs) == 3, str(certs))
 lang_text = "English (Fluent), Spanish, Mandarin (Conversational)"
 langs = parse_languages(lang_text)
 check("parses 3 languages", len(langs) == 3, str(langs))
+
+print("\n── Education Concatenation Fix ──")
+check("splits TitleCase institution",
+    _fix_concatenated_words("EmoryUniversity") == "Emory University")
+
+check("splits degree with prepositions",
+    "Bachelor of Science" in _fix_concatenated_words(
+        "BachelorofScienceinComputerScience"))
+
+check("leaves short tokens alone",
+    _fix_concatenated_words("GPA PhD AWS") == "GPA PhD AWS")
+
+print("\n── Company-First Format (B1) ──")
+import spacy as _spacy
+nlp = _spacy.load("en_core_web_md")
+
+entry_b1 = """Ralph Lauren Washington, D.C.
+Corporate Finance Intern June 2021-August 2021
+Collaborated with 5 interns to analyze revenue.
+Analyzed revenue streams from 8 key product lines."""
+
+parsed = _parse_single_job_entry(entry_b1, nlp)
+check("B1: title extracted from date line",
+    parsed.get("title") == "Corporate Finance Intern",
+    str(parsed))
+check("B1: company extracted from pre-date line",
+    parsed.get("company") is not None and "Ralph Lauren" in parsed["company"],
+    str(parsed))
+check("B1: location stripped from company",
+    "Washington" not in (parsed.get("company") or ""),
+    str(parsed))
+check("B1: bullets are description not company",
+    "Collaborated" in parsed.get("description", ""),
+    str(parsed))
+
+entry_b1_dept = """McDonough School of Business, Accounting Department Washington, D.C.
+Lead Research Assistant January 2021-Present
+Use R to run statistical analyses."""
+
+parsed2 = _parse_single_job_entry(entry_b1_dept, nlp)
+check("B1: department company extracted",
+    parsed2.get("company") is not None and "McDonough" in parsed2["company"],
+    str(parsed2))
+check("B1: title correct for department entry",
+    parsed2.get("title") == "Lead Research Assistant",
+    str(parsed2))
 
 print("\n" + "=" * 50)
 if errors:

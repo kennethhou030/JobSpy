@@ -22,6 +22,7 @@ from typing import Optional
 import pandas as pd
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from jobspy import scrape_jobs
@@ -408,6 +409,8 @@ async def upload_resume(file: UploadFile = File(...)) -> dict:
     save_dir.mkdir(parents=True, exist_ok=True)
     save_path = save_dir / f"default_resume{ext}"
 
+    if save_path.exists():
+        save_path.unlink()
     with open(save_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
 
@@ -452,30 +455,33 @@ async def get_resume() -> dict:
     profile = get_resume_profile(user_id="default")
     if not profile:
         raise HTTPException(status_code=404, detail="No resume uploaded yet.")
-    return {
-        # Contact
-        "name":              profile.name,
-        "email":             profile.email,
-        "phone":             profile.phone,
-        "linkedin_url":      getattr(profile, "linkedin_url", None),
-        "github_url":        getattr(profile, "github_url", None),
-        # Summary
-        "summary":           profile.summary,
-        "experience_years":  profile.experience_years,
-        # Skills
-        "parsed_skills":     profile.parsed_skills or [],
-        # Structured sections
-        "work_experience":   getattr(profile, "work_experience", None) or [],
-        "projects":          getattr(profile, "projects", None) or [],
-        "volunteer":         getattr(profile, "volunteer", None) or [],
-        "education":         profile.education or [],
-        "certifications":    getattr(profile, "certifications", None) or [],
-        "languages":         getattr(profile, "languages", None) or [],
-        # Meta
-        "original_filename": profile.original_filename,
-        "uploaded_at":       profile.uploaded_at.isoformat() if profile.uploaded_at else None,
-        "sections_detected": list((getattr(profile, "raw_sections", None) or {}).keys()),
-    }
+    return JSONResponse(
+        content={
+            # Contact
+            "name":              profile.name,
+            "email":             profile.email,
+            "phone":             profile.phone,
+            "linkedin_url":      getattr(profile, "linkedin_url", None),
+            "github_url":        getattr(profile, "github_url", None),
+            # Summary
+            "summary":           profile.summary,
+            "experience_years":  profile.experience_years,
+            # Skills
+            "parsed_skills":     profile.parsed_skills or [],
+            # Structured sections
+            "work_experience":   getattr(profile, "work_experience", None) or [],
+            "projects":          getattr(profile, "projects", None) or [],
+            "volunteer":         getattr(profile, "volunteer", None) or [],
+            "education":         profile.education or [],
+            "certifications":    getattr(profile, "certifications", None) or [],
+            "languages":         getattr(profile, "languages", None) or [],
+            # Meta
+            "original_filename": profile.original_filename,
+            "uploaded_at":       profile.uploaded_at.isoformat() if profile.uploaded_at else None,
+            "sections_detected": list((getattr(profile, "raw_sections", None) or {}).keys()),
+        },
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.delete(

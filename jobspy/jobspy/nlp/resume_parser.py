@@ -210,6 +210,12 @@ SECTION_SYNONYMS: dict[str, str] = {
     "additional activities":            "volunteer",
     "leadership and involvement":       "volunteer",
     "leadership & involvement":         "volunteer",
+    "leadership activities":            "volunteer",
+    "leadership and activities":        "volunteer",
+    "campus activities":                "volunteer",
+    "activities and leadership":        "volunteer",
+    "clubs and organizations":          "volunteer",
+    "organizations":                    "volunteer",
     "giving back":                      "volunteer",
 
     # ── CERTIFICATIONS ──────────────────────────────────────────────────────────
@@ -323,6 +329,30 @@ RE_DATE_RANGE = re.compile(
     """,
     re.IGNORECASE | re.VERBOSE,)
 
+# Relaxed date range — used ONLY in _split_into_entries fallback splitting.
+# [\dxX]{2} accepts real digits AND placeholder years like "20xx" / "20XX".
+# Month prefix is required here (unlike RE_DATE_RANGE) to reduce false positives.
+RE_DATE_RANGE_LOOSE = re.compile(
+    r"""
+    (?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|
+       jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|
+       oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)
+    \.?\s*
+    (?:19|20)[\dxX]{2}
+    (?:
+        \s*[-\u2013\u2014/to]+\s*
+        (?:
+            (?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|
+               jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|
+               oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)
+            \.?\s*
+        )?
+        (?:(?:19|20)[\dxX]{2}|present|current|now|ongoing|today)
+    )?
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
 # Standalone year (for experience calculation)
 RE_YEAR = re.compile(r"\b((?:19|20)\d{2})\b")
 
@@ -338,6 +368,29 @@ RE_DEGREE = re.compile(
 # Section header structural fallback
 RE_HEADER_ALLCAPS = re.compile(r"^[A-Z][A-Z\s&/\-]{2,45}:?\s*$")
 RE_HEADER_TITLECASE = re.compile(r"^([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,4}):?\s*$")
+
+# Positive confirmation that a line names a company/institution rather than a
+# description bullet: the line must end with a city/state or Remote suffix.
+LOCATION_SUFFIX = re.compile(
+    r'(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*),\s*'
+    r'(?:[A-Z]{2}|D\.C\.|Washington|Remote)\s*$'
+)
+
+
+def _looks_like_company_line(line: str) -> bool:
+    """Return True only when *line* ends with a recognisable location suffix.
+
+    Using location as positive confirmation avoids the action-verb exclusion
+    heuristic, which was brittle against bullets that start with proper nouns
+    (e.g. "Cultivated strong rapport…" would pass a verb test if 'C' happened
+    to look like an org name).  A city/state tail is a strong, unambiguous
+    signal that the line is an employer or institution, not a bullet.
+    """
+    stripped = line.strip()
+    if not stripped:
+        return False
+    return bool(LOCATION_SUFFIX.search(stripped))
+
 
 # URL extraction
 RE_LINKEDIN = re.compile(
@@ -365,16 +418,41 @@ def extract_text_from_pdf(file_path: str) -> str:
     """
     Extract text from PDF using pdfplumber (preferred — better layout preservation)
     with pypdf as fallback.
+
+    Known limitation: pdfplumber maps non-ASCII characters not in its replacement
+    table to a space, so accented characters like é become " " (e.g. "Café" → "Caf ").
+    This is expected behavior and not fixable without OCR.
     """
     try:
         import pdfplumber
         with pdfplumber.open(file_path) as pdf:
-            pages = []
+            pages_default: list[str] = []
+            pages_layout: list[str] = []
             for page in pdf.pages:
-                text = page.extract_text(x_tolerance=3, y_tolerance=3)
-                if text:
-                    pages.append(text)
-            return "\n".join(pages)
+                t = page.extract_text(x_tolerance=3, y_tolerance=3)
+                if t:
+                    pages_default.append(t)
+                t2 = page.extract_text(layout=True)
+                if t2:
+                    pages_layout.append(t2)
+
+            result = "\n".join(pages_default)
+
+            # Multi-column detection: if >30% of lines are short (column fragmentation
+            # signal), prefer the layout-aware extraction when it gives longer lines.
+            all_lines = result.splitlines()
+            if all_lines and pages_layout:
+                short_ratio = sum(1 for l in all_lines if len(l) < 25) / len(all_lines)
+                if short_ratio > 0.30:
+                    result_layout = "\n".join(pages_layout)
+                    layout_lines = result_layout.splitlines()
+                    if layout_lines:
+                        avg_default = sum(len(l) for l in all_lines) / len(all_lines)
+                        avg_layout = sum(len(l) for l in layout_lines) / len(layout_lines)
+                        if avg_layout > avg_default:
+                            result = result_layout
+
+            return result
     except ImportError:
         pass  # fall through to pypdf
 
@@ -430,6 +508,43 @@ def _normalize_unicode(char: str) -> str:
         "\u00A0": " ",
     }
     return replacements.get(char, " ")
+
+
+def _fix_concatenated_words(text: str) -> str:
+    """
+    Re-insert spaces into camelCase/TitleCase concatenated words that
+    pdfplumber produces when it loses spacing in certain PDF layouts.
+
+    "EmoryUniversity"                  → "Emory University"
+    "BachelorofScienceinCS"            → "Bachelor of Science in CS"
+    "ComputerScienceandPhysics"        → "Computer Science and Physics"
+    "AtlantaGA"                        → "Atlanta GA"
+
+    Strategy: insert a space before any uppercase letter that is
+    immediately preceded by a lowercase letter (standard camelCase split),
+    AND before any uppercase letter preceded by another uppercase letter
+    that is itself followed by a lowercase letter (e.g. "GAAtlanta").
+    Apply only to tokens longer than 8 characters to avoid splitting
+    intentional acronyms like "GPA" or "PhD".
+    """
+    def split_token(token: str) -> str:
+        if len(token) <= 8:
+            return token
+        # Step 0: split embedded lowercase joining words before camelCase split.
+        # Matches a known short word that sits between a lowercase and an uppercase
+        # letter: "BachelorofScience" → "Bachelor of Science",
+        # "ScienceinCS" → "Science in CS", "ScienceandPhysics" → "Science and Physics".
+        result = re.sub(
+            r'(?<=[a-z])(of|in|and|the|or|to|with|for|at|by|from|as|an)(?=[A-Z])',
+            r' \1 ', token,
+        )
+        # Step 1: insert space before uppercase preceded by lowercase: "ofScience" → "of Science"
+        result = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', result)
+        # Step 2: insert space before uppercase run followed by lowercase: "GAAtlanta" → "GA Atlanta"
+        result = re.sub(r'(?<=[A-Z])(?=[A-Z][a-z])', ' ', result)
+        return result
+
+    return ' '.join(split_token(t) for t in text.split())
 
 
 # ─────────────────────────────────────────────
@@ -560,6 +675,14 @@ def extract_name(text: str, nlp) -> str | None:
             if len(name) >= 3 and "@" not in name and name.replace(" ", "").isalpha():
                 return name
 
+    # Fallback: all-caps name (e.g. "MORGAN LANDER") — check before title-case
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped and 2 <= len(stripped.split()) <= 4:
+            words = stripped.split()
+            if all(w.isupper() and w.isalpha() and len(w) >= 2 for w in words):
+                return stripped.title()
+
     # Fallback: first non-empty line that looks like a name (2–4 words, title case)
     for line in text.splitlines():
         stripped = line.strip()
@@ -603,50 +726,65 @@ def _split_into_entries(section_text: str) -> list[str]:
     """
     Split experience/project/volunteer section text into individual entries.
 
-    Strategy: each date range anchors an entry.  We split at the START OF THE LINE
-    containing each date — not at the date position itself — so that "Company,Title|Date"
-    header lines stay together with their descriptions.
+    Pass 1: if 2+ strict RE_DATE_RANGE matches exist, split at the start of
+    each matched line (preserves inline "Title  Month YYYY – Present" headers).
+
+    Pass 2 (fallback for 0–1 strict matches): try blank-line splitting first;
+    if that yields only one block, fall back to per-line RE_DATE_RANGE_LOOSE
+    scanning so that placeholder dates like "20xx" still split correctly.
     """
     if not section_text.strip():
         return []
 
     date_matches = list(RE_DATE_RANGE.finditer(section_text))
 
-    if not date_matches:
-        blocks = re.split(r"\n\s*\n", section_text)
-        return [b.strip() for b in blocks if b.strip()]
+    if len(date_matches) >= 2:
+        # Build a mapping from character position → line-start position
+        line_starts: list[int] = []
+        pos = 0
+        for line in section_text.split("\n"):
+            line_starts.append(pos)
+            pos += len(line) + 1  # +1 for the '\n'
 
-    # Build a mapping from character position → line-start position
-    line_starts: list[int] = []
-    pos = 0
-    for line in section_text.split("\n"):
-        line_starts.append(pos)
-        pos += len(line) + 1  # +1 for the '\n'
+        def line_start_for(char_pos: int) -> int:
+            """Return the character index of the line that contains char_pos."""
+            result = 0
+            for ls in line_starts:
+                if ls <= char_pos:
+                    result = ls
+                else:
+                    break
+            return result
 
-    def line_start_for(char_pos: int) -> int:
-        """Return the character index of the line that contains char_pos."""
-        result = 0
-        for ls in line_starts:
-            if ls <= char_pos:
-                result = ls
-            else:
-                break
-        return result
+        # Collect unique entry-start positions (one per date match, at line start)
+        entry_starts: list[int] = sorted(
+            {line_start_for(m.start()) for m in date_matches}
+        )
 
-    # Collect unique entry-start positions (one per date match, at line start)
-    entry_starts: list[int] = sorted(
-        {line_start_for(m.start()) for m in date_matches}
-    )
+        # Split section_text at each entry start
+        entries: list[str] = []
+        for i, start in enumerate(entry_starts):
+            end = entry_starts[i + 1] if i + 1 < len(entry_starts) else len(section_text)
+            chunk = section_text[start:end].strip()
+            if chunk:
+                entries.append(chunk)
 
-    # Split section_text at each entry start
-    entries: list[str] = []
-    for i, start in enumerate(entry_starts):
-        end = entry_starts[i + 1] if i + 1 < len(entry_starts) else len(section_text)
-        chunk = section_text[start:end].strip()
-        if chunk:
-            entries.append(chunk)
+        return entries
 
-    return entries
+    # Pass 2: try blank-line split, then per-line loose-date scan
+    blocks = re.split(r"\n\s*\n", section_text)
+    blocks = [b.strip() for b in blocks if b.strip()]
+    if len(blocks) > 1:
+        return blocks
+
+    # Per-line loose scan: any line matching RE_DATE_RANGE_LOOSE starts a new entry
+    groups: list[list[str]] = [[]]
+    for line in section_text.splitlines():
+        if RE_DATE_RANGE_LOOSE.search(line) and groups[-1]:
+            groups.append([line])
+        else:
+            groups[-1].append(line)
+    return ["\n".join(g).strip() for g in groups if any(l.strip() for l in g)]
 
 
 def _parse_single_job_entry(entry_text: str, nlp) -> dict:
@@ -692,6 +830,11 @@ def _parse_single_job_entry(entry_text: str, nlp) -> dict:
         comma_idx = left.find(",")
         if comma_idx > 0:
             company = left[:comma_idx].strip()
+            company = (re.sub(
+                r'(?:,\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?|\s+[A-Z][a-z]+)'
+                r',\s*(?:[A-Z]{2}|D\.C\.)\s*$',
+                '', company,
+            ).strip().rstrip(',')) or company
             title_loc = left[comma_idx + 1:].strip()
             # Strip trailing US-style location ("Atlanta,GA", "Remote", "Suzhou,China")
             loc_m = re.search(
@@ -709,25 +852,44 @@ def _parse_single_job_entry(entry_text: str, nlp) -> dict:
         pre_date_lines = lines[:date_line_idx] if date_line_idx is not None else lines[:2]
         post_date_lines = lines[date_line_idx + 1:] if date_line_idx is not None else lines[2:]
 
-        if pre_date_lines:
-            title = pre_date_lines[0].strip()
-            if len(pre_date_lines) > 1:
-                company = pre_date_lines[1].strip()
-            else:
-                doc = nlp(title)
-                orgs = [e.text for e in doc.ents if e.label_ == "ORG"]
-                if orgs:
-                    company = orgs[0]
-                    for sep in [" at ", " @ ", " \u2014 ", " - "]:
-                        if sep in title:
-                            parts = title.split(sep, 1)
-                            title, company = parts[0].strip(), parts[1].strip()
-                            break
+        if date_line_idx is not None:
+            # Check if the date line itself contains a title (text before the date)
+            date_match_on_line = RE_DATE_RANGE.search(lines[date_line_idx])
+            text_before_date = lines[date_line_idx][:date_match_on_line.start()].strip()
+            title_is_on_date_line = len(text_before_date) > 2
+        else:
+            title_is_on_date_line = False
+
+        if title_is_on_date_line:
+            # SUB-FORMAT B1: "Company   City, ST" on line before date,
+            # "Title   DateRange" on the date line itself.
+            title = text_before_date.rstrip(',-|').strip()
+            if pre_date_lines:
+                # Strip trailing location suffix from company line
+                # e.g. "Ralph Lauren   Washington, D.C." → "Ralph Lauren"
+                company_raw = pre_date_lines[0].strip()
+                company = re.sub(
+                    r'(?:,\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?|\s+[A-Z][a-z]+)'
+                    r',\s*(?:[A-Z]{2}|D\.C\.)\s*$',
+                    '',
+                    company_raw,
+                ).strip().rstrip(',')
+                if not company:
+                    company = company_raw  # fallback: keep original if stripping fails
+        else:
+            # SUB-FORMAT B2: date line is date-only, title in pre_date_lines
+            pre = pre_date_lines
+            if pre:
+                title = pre[0].strip()
+                company = pre[1].strip() if len(pre) > 1 else None
 
     # Clean up description bullets (strip leading spaces/bullet chars)
     bullets = []
     for line in post_date_lines:
-        cleaned = line.strip().lstrip("\u2022\u25cf\u25e6\u2013-*").strip()
+        cleaned = line.strip().lstrip(
+            "\u2022\u25cf\u25e6\u2013-*\u2027\u2043\u204c\u204d\u2219\u25aa\u2012"
+        ).strip()
+        cleaned = re.sub(r"^\d+\.\s*", "", cleaned)
         if cleaned:
             bullets.append(cleaned)
 
@@ -911,6 +1073,7 @@ def parse_education_section(section_text: str, nlp) -> list[dict]:
 
     results = []
     for entry in entries:
+        entry = _fix_concatenated_words(entry)
         entry_lines = [l.strip() for l in entry.splitlines() if l.strip()]
         if not entry_lines:
             continue
@@ -931,6 +1094,12 @@ def parse_education_section(section_text: str, nlp) -> list[dict]:
             else:
                 degree_str = entry[start: start + 80].strip()
             degree_str = degree_str[:120]  # cap length
+
+        if degree_str:
+            degree_str = re.sub(
+                r'\s*(Expected|Graduated|GPA|Cumulative|Dean).*$',
+                '', degree_str, flags=re.IGNORECASE
+            ).strip().rstrip(',:;')
 
         # ── GPA ──
         gpa_match = RE_GPA.search(entry)
@@ -1113,7 +1282,9 @@ def parse_resume(file_path: str) -> dict:
     work_entries      = parse_experience_section(sections.get("experience", ""), nlp)
     project_entries   = parse_project_section(sections.get("projects", ""))
     volunteer_entries = parse_volunteer_section(sections.get("volunteer", ""), nlp)
-    education_entries = parse_education_section(sections.get("education", ""), nlp)
+    education_entries = parse_education_section(
+        _fix_concatenated_words(sections.get("education", "")), nlp
+    )
     certifications    = parse_certifications(sections.get("certifications", ""))
     languages         = parse_languages(sections.get("languages", ""))
 

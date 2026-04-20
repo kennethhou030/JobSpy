@@ -387,18 +387,13 @@ def save_resume_profile(profile_data: dict, user_id: str = "default") -> ResumeP
     with SessionLocal() as session:
         existing = session.query(ResumeProfile).filter_by(user_id=user_id).first()
         if existing:
-            for key, val in profile_data.items():
-                setattr(existing, key, val)
-            existing.updated_at = datetime.utcnow()
-            session.commit()
-            session.refresh(existing)
-            return existing
-        else:
-            profile = ResumeProfile(user_id=user_id, **profile_data)
-            session.add(profile)
-            session.commit()
-            session.refresh(profile)
-            return profile
+            session.delete(existing)
+            session.flush()
+        profile = ResumeProfile(user_id=user_id, **profile_data)
+        session.add(profile)
+        session.commit()
+        session.refresh(profile)
+        return profile
 
 
 def get_resume_profile(user_id: str = "default") -> ResumeProfile | None:
