@@ -1,0 +1,17 @@
+/venv/
+/.idea
+**/__pycache__/
+**/.pytest_cache/
+/.ipynb_checkpoints/
+**/output/
+**/.DS_Store
+*.pyc
+.env
+dist
+
+# SQLite database files (runtime data, not code)
+*.db
+*.db-shm
+*.db-wal
+logs/
+data/resumes/

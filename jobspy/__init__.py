@@ -24,6 +24,7 @@ from jobspy.util import (
     desired_order,
 )
 from jobspy.ziprecruiter import ZipRecruiter
+from jobspy.nlp.skill_extractor import extract_skills
 
 
 # Update the SCRAPER_MAPPING dictionary in the scrape_jobs function
@@ -194,6 +195,15 @@ def scrape_jobs(
             job_data["company_reviews_count"] = job_data.get("company_reviews_count")
             job_data["vacancy_count"] = job_data.get("vacancy_count")
             job_data["work_from_home_type"] = job_data.get("work_from_home_type")
+
+            # NLP skill extraction — runs on every job from every platform
+            if job_data.get("description"):
+                skills_result = extract_skills(job_data["description"])
+                job_data["required_skills"] = skills_result["required"]
+                job_data["preferred_skills"] = skills_result["preferred"]
+            else:
+                job_data["required_skills"] = []
+                job_data["preferred_skills"] = []
 
             job_df = pd.DataFrame([job_data])
             jobs_dfs.append(job_df)

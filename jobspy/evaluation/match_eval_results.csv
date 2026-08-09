@@ -1,0 +1,51 @@
+job_id,title,company,true_label,match_score,predicted_label,true_binary
+in-ec840d99444c716a,Sr. Software Developer,Ness Digital Engineering,0.5,19.4,1,1
+in-72aa500107984cd0,Sr. Developer,Ness Digital Engineering,0.0,19.4,1,0
+in-d1d60754faba78cb,Blockchain Software Engineer,Craftner INC,0.0,28.6,1,0
+in-ae3340bad9327809,OneStream Developer,Deloitte,0.0,2.5,0,0
+in-d03caefa0da8b097,OneStream Developer,Deloitte,0.0,2.5,0,0
+in-f53dfbed3bd5f18b,OneStream Developer,Deloitte,0.0,2.5,0,0
+in-ef9b6f312b7adc3e,Staff Machine Learning Engineer,Bumble,0.0,20.0,1,0
+in-0e078db6215a0d51,"Computer Programmer Analyst I, II, or III (Tyler Technologies)",City of St. Petersburg,1.0,21.0,1,1
+in-d914d531a9a89f28,"Sr. Firmware Engineer, Annapurna Labs, Machine Learning Acceleration - Power and Performance",Amazon Web Services,0.0,9.5,0,0
+in-e6970d6efac1992a,"Sr Software Dev Engineer, Machine Learning, Sponsored Products and Brands Ads Response Prediction",Amazon.com,0.0,0.0,0,0
+in-5ffc22d2e4c32d61,"Firmware Engineer, Annapurna Labs, ML Acceleration - Performance Instrumentation & Developer Tools",Amazon Web Services,0.0,9.5,0,0
+in-4335bd6166f691bf,"Sr Software Dev Engineer, Machine Learning, Sponsored Products and Brands Ads Response Prediction",Amazon.com,0.0,0.0,0,0
+in-328f75f0a7343278,"Sr. Firmware Engineer, Annapurna Labs, Machine Learning Acceleration - Power and Performance",Amazon Web Services,0.0,9.5,0,0
+in-1b8918e8960320ad,"Sr Software Dev Engineer, Machine Learning, Sponsored Products and Brands Ads Response Prediction",Amazon.com,0.0,0.0,0,0
+in-cdd9d70218fc9973,"Sr. Firmware Engineer, Annapurna Labs, Machine Learning Acceleration - Power and Performance",Amazon Web Services,0.0,9.5,0,0
+in-c32d1980c75e06cc,"Firmware Engineer, Annapurna Labs, ML Acceleration - Performance Instrumentation & Developer Tools",Amazon Web Services,0.0,9.5,0,0
+in-bbb51396cf781171,"Firmware Engineer, Annapurna Labs, ML Acceleration - Performance Instrumentation & Developer Tools",Amazon Web Services,0.0,9.5,0,0
+in-115996f2dd43d969,"Software Development Engineer, AWS Compute Services",Amazon Web Services,0.5,6.2,0,1
+in-f920b180503abb39,"Software Development Engineer, AWS Compute Services",Amazon Web Services,0.5,6.2,0,1
+in-49af5310bba83db9,"Software Development Engineer, AWS Compute Services",Amazon Web Services,0.5,6.2,0,1
+in-8949f7caf830c00a,"Software Development Engineer, AWS Compute Services",Amazon Web Services,0.5,6.2,0,1
+in-bdffb5f081a641b8,"Software Development Engineer, AWS Compute Services",Amazon Web Services,0.5,6.2,0,1
+in-5cda3a31174a48a3,"Software Development Engineer, AWS Compute Services",Amazon Web Services,0.5,6.2,0,1
+in-08a39b41787b7f76,"Senior Software Engineer - Query Processing, Aurora DSQL",Amazon Web Services,0.5,11.1,1,1
+in-2546f3f70ffff186,"Senior Software Engineer - Query Processing, Aurora DSQL",Amazon Web Services,0.5,11.1,1,1
+in-3f3a3a650f5c651d,Entry Level Software Engineer,Amentum,1.0,17.2,1,1
+in-7ba7c007f8a5e312,Electrical Engineering Intern,U.S. Pipe,0.0,0.0,0,0
+li-4391740728,Software Engineer Intern,"Happy Returns, a UPS Company",1.0,39.3,1,1
+li-4389421081,Summer Internship Program 2026 - Software Developer Intern,ICE,1.0,14.3,1,1
+li-4388735546,"BMW, Software Engineer Co-Op (Fall 2026) - Application via WayUp",WayUp,1.0,70.0,1,1
+in-f3a301f6de6c69bc,Intern - Roadway Engineering,GFT,0.0,0.0,0,0
+in-def5998c219203a8,Maintenance Engineer Intern,ITW Sexton,0.0,0.0,0,0
+in-ac8eb46af72cee19,Software Engineer Intern,"Happy Returns, Inc.",1.0,39.3,1,1
+in-4a7332abda3482c5,Software Engineer Intern,"Happy Returns, Inc.",1.0,39.3,1,1
+in-e3d7c63fea4cd648,"Manufacturing Engineer (Training) Intern, Birmingham",Terex Corporation,0.0,0.0,0,0
+li-4391732863,Software Engineer Intern,"Happy Returns, a UPS Company",1.0,39.3,1,1
+in-9da6cd01d7da36e0,Test Engineer Intern,Tuff Torq Corporation,0.5,0.0,0,1
+in-9b32c59da6b14e31,Engineering Intern,Bonnell Aluminum,0.0,0.0,0,0
+in-8b1927a9f4e13e0c,Construction Project Engineer Intern,The Scruggs Company,0.0,2.7,0,0
+in-c6708be7bf636ca9,Piping Engineer,Amentum,0.0,0.0,0,0
+in-a6771ccb58c7446b,Engineer - Intern,ITW Sexton,0.0,0.0,0,0
+li-4381180446,Controls Engineer Intern,Challenge Manufacturing,0.0,0.0,0,0
+li-4381168874,Manufacturing Engineer Intern,Challenge Manufacturing,0.0,0.0,0,0
+li-4381173682,Weld Engineer Intern,Challenge Manufacturing,0.0,0.0,0,0
+li-4390286465,Software Development Intern,Octave,1.0,0.0,0,1
+in-9e30cc534196bafc,Command and Control Engineer/Developer,IS4S,0.0,13.0,1,0
+in-46d96f775c596b25,AI & Cloud Engineering Intern,"Safe-Guard Products International, LLC",0.5,18.5,1,1
+in-2530bd9c47a43dec,Intership - Software Engineer AI,"AGILYSYS, INC.",1.0,17.4,1,1
+in-64b01cc7019f530b,Intermediate Systems Engineer,MITRE,0.0,7.8,0,0
+in-e554d3ed87980105,MACHINE LEARNING ENGINEER INTERN,Norfolk Southern,1.0,9.4,0,1

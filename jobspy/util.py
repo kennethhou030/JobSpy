@@ -353,6 +353,9 @@ desired_order = [
     "company_num_employees",
     "company_revenue",
     "company_description",
+    # NLP-extracted skills
+    "required_skills",
+    "preferred_skills",
     # naukri-specific fields
     "skills",
     "experience_range",

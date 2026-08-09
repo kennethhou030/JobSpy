@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Cover Letter Human Review Form</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+  body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f5f6f8; }
+  .rating-btn { transition: all .15s; }
+  .rating-btn.selected { background: #bcbdfb; color: #1e1b4b; border-color: #bcbdfb; }
+</style>
+</head>
+<body class="min-h-screen py-10 px-4">
+<div class="max-w-3xl mx-auto">
+
+  <!-- Header -->
+  <div class="text-center mb-10">
+    <div class="inline-flex items-center gap-2 mb-4">
+      <div class="bg-[#bcbdfb] p-2 rounded-xl">
+        <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+      </div>
+      <h1 class="text-2xl font-black text-slate-900">Cover Letter Review Form</h1>
+    </div>
+    <p class="text-slate-500 text-sm">Rate each cover letter across 4 dimensions using the 1–5 scale below.</p>
+    <div class="mt-4 bg-indigo-50 rounded-xl p-4 text-left text-sm">
+      <p class="font-bold text-indigo-700 mb-2">Rating Scale:</p>
+      <div class="grid grid-cols-2 gap-1 text-xs text-slate-600">
+        <div><strong>1</strong> — Poor / Very Dissatisfied</div>
+        <div><strong>2</strong> — Below Average</div>
+        <div><strong>3</strong> — Average / Acceptable</div>
+        <div><strong>4</strong> — Good / Above Average</div>
+        <div class="col-span-2"><strong>5</strong> — Excellent / Very Satisfied</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reviewer info -->
+  <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mb-6">
+    <h2 class="font-bold text-slate-700 mb-4">Reviewer Information</h2>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="text-xs font-bold text-slate-500 block mb-1">Reviewer Name</label>
+        <input id="reviewer-name" type="text" placeholder="Your name"
+          class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#bcbdfb]/50"/>
+      </div>
+      <div>
+        <label class="text-xs font-bold text-slate-500 block mb-1">Date</label>
+        <input id="review-date" type="date"
+          class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#bcbdfb]/50"/>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cover Letters Container -->
+  <div id="letters-container"></div>
+
+  <!-- Submit -->
+  <div class="mt-8 flex gap-4 justify-end">
+    <button onclick="exportResults()"
+      class="flex items-center gap-2 bg-[#bcbdfb] hover:bg-indigo-400 text-slate-900 font-bold px-6 py-3 rounded-xl transition-all hover:scale-105 active:scale-95">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+      </svg>
+      Export Results (JSON)
+    </button>
+  </div>
+  <div id="export-output" class="hidden mt-4 bg-slate-800 rounded-xl p-4">
+    <p class="text-xs font-bold text-slate-400 mb-2">Copy the JSON below and share with the research team:</p>
+    <pre id="export-text" class="text-xs text-green-400 whitespace-pre-wrap max-h-64 overflow-y-auto"></pre>
+  </div>
+
+</div>
+
+<script>
+// ── Sample cover letters — replace with actual generated content ─────────────
+// Load from cl_for_review.md or paste letter text directly into letterData below.
+const letterData = [
+  // Example structure — replace with real data:
+  // {
+  //   id: 1,
+  //   jobId: "linkedin-12345",
+  //   title: "Software Engineer",
+  //   company: "Acme Corp",
+  //   matchScore: 82.4,
+  //   letterText: "Dear Hiring Manager,\n\n...",
+  // },
+];
+
+const criteria = [
+  { key: "relevance",       label: "Relevance",       desc: "Addresses the specific job requirements" },
+  { key: "fluency",         label: "Fluency",          desc: "Well-written and grammatically correct" },
+  { key: "professionalism", label: "Professionalism",  desc: "Appropriate professional tone and format" },
+  { key: "groundedness",    label: "Groundedness",     desc: "Accurately reflects the candidate's resume" },
+];
+
+const ratings = {};
+
+function renderLetters() {
+  const container = document.getElementById('letters-container');
+  if (!letterData.length) {
+    container.innerHTML = `
+      <div class="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
+        <p class="font-bold text-amber-700 mb-2">No cover letters loaded</p>
+        <p class="text-sm text-amber-600">
+          Run <code class="bg-amber-100 px-1.5 py-0.5 rounded font-mono text-xs">python evaluation/cover_letter_eval.py --n 10</code>
+          then copy the generated text into the <strong>letterData</strong> array in this file.
+        </p>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = letterData.map((letter, idx) => {
+    ratings[letter.id] = {};
+    criteria.forEach(c => ratings[letter.id][c.key] = null);
+
+    return `
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mb-6">
+      <div class="flex items-start justify-between mb-4">
+        <div>
+          <span class="text-[10px] font-bold text-[#bcbdfb] uppercase tracking-wide">Cover Letter ${idx + 1}</span>
+          <h3 class="font-black text-slate-900 mt-0.5">${letter.title}</h3>
+          <p class="text-sm text-slate-500">${letter.company}</p>
+        </div>
+        ${letter.matchScore !== undefined ? `
+        <span class="text-xs font-black px-3 py-1 rounded-full
+          ${letter.matchScore >= 75 ? 'bg-emerald-100 text-emerald-700'
+          : letter.matchScore >= 50 ? 'bg-amber-100 text-amber-700'
+          : 'bg-red-100 text-red-600'}">
+          ${letter.matchScore.toFixed(1)}% match
+        </span>` : ''}
+      </div>
+
+      <!-- Letter text -->
+      <div class="bg-slate-50 rounded-xl p-4 mb-5 max-h-48 overflow-y-auto">
+        <pre class="text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed">${letter.letterText}</pre>
+      </div>
+
+      <!-- Rating criteria -->
+      <div class="space-y-4">
+        ${criteria.map(c => `
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <div>
+              <span class="text-sm font-bold text-slate-700">${c.label}</span>
+              <span class="text-xs text-slate-400 ml-2">${c.desc}</span>
+            </div>
+            <span id="score-${letter.id}-${c.key}" class="text-xs font-black text-[#bcbdfb]"></span>
+          </div>
+          <div class="flex gap-2">
+            ${[1,2,3,4,5].map(n => `
+            <button class="rating-btn flex-1 py-2 border-2 border-slate-200 rounded-lg text-sm font-bold text-slate-500
+              hover:border-[#bcbdfb] hover:text-indigo-600 transition-all"
+              data-letter="${letter.id}" data-criterion="${c.key}" data-value="${n}"
+              onclick="setRating(${letter.id}, '${c.key}', ${n}, this)">
+              ${n}
+            </button>`).join('')}
+          </div>
+        </div>`).join('')}
+      </div>
+
+      <!-- Notes -->
+      <div class="mt-4">
+        <label class="text-xs font-bold text-slate-500 block mb-1">Notes (optional)</label>
+        <textarea id="notes-${letter.id}" rows="2" placeholder="Any observations about this cover letter..."
+          class="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[#bcbdfb]/50 resize-none"></textarea>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function setRating(letterId, criterion, value, btn) {
+  ratings[letterId][criterion] = value;
+
+  // Update button states
+  document.querySelectorAll(`[data-letter="${letterId}"][data-criterion="${criterion}"]`).forEach(b => {
+    b.classList.remove('selected');
+  });
+  btn.classList.add('selected');
+
+  // Update score display
+  document.getElementById(`score-${letterId}-${criterion}`).textContent = `${value}/5`;
+}
+
+function exportResults() {
+  const reviewerName = document.getElementById('reviewer-name').value || 'Anonymous';
+  const reviewDate   = document.getElementById('review-date').value || new Date().toISOString().split('T')[0];
+
+  const results = letterData.map(letter => ({
+    job_id:      letter.jobId,
+    title:       letter.title,
+    company:     letter.company,
+    match_score: letter.matchScore,
+    ratings:     ratings[letter.id],
+    notes:       document.getElementById(`notes-${letter.id}`)?.value || '',
+    avg_score:   (() => {
+      const vals = Object.values(ratings[letter.id]).filter(v => v !== null);
+      return vals.length ? (vals.reduce((a,b) => a+b, 0) / vals.length).toFixed(2) : null;
+    })(),
+  }));
+
+  const output = {
+    reviewer:    reviewerName,
+    date:        reviewDate,
+    total_letters: letterData.length,
+    results,
+  };
+
+  const el = document.getElementById('export-output');
+  const text = document.getElementById('export-text');
+  text.textContent = JSON.stringify(output, null, 2);
+  el.classList.remove('hidden');
+  el.scrollIntoView({ behavior: 'smooth' });
+}
+
+// Set today's date
+document.getElementById('review-date').value = new Date().toISOString().split('T')[0];
+renderLetters();
+</script>
+</body>
+</html>

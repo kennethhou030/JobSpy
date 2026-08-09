@@ -31,6 +31,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     Integer,
+    JSON,
     String,
     Text,
     create_engine,
@@ -43,6 +44,10 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 # ---------------------------------------------------------------------------
 
 DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///jobspy.db")
+
+# Railway (and Heroku) inject postgres:// but SQLAlchemy requires postgresql://
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 _connect_args: dict = (
     {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
@@ -125,6 +130,10 @@ class Job(Base):
     # --- Seniority / function ---
     job_level = Column(String(100))
     job_function = Column(String(100))
+
+    # --- NLP-extracted skills (all platforms) ---
+    required_skills = Column(JSON, nullable=True)    # list of required skills
+    preferred_skills = Column(JSON, nullable=True)   # list of preferred skills
 
     # --- Contact ---
     emails = Column(Text)                     # comma-separated
@@ -254,6 +263,42 @@ def create_session_record(
         return session.id
 
 
+def _apply_job_filters(q, site, title, company, location, is_remote, min_salary, date_from):
+    """Apply shared filter clauses to a Job query."""
+    if site:
+        q = q.filter(Job.site == site.lower())
+    if title:
+        q = q.filter(Job.title.ilike(f"%{title}%"))
+    if company:
+        q = q.filter(Job.company.ilike(f"%{company}%"))
+    if location:
+        q = q.filter(Job.location.ilike(f"%{location}%"))
+    if is_remote is not None:
+        q = q.filter(Job.is_remote == is_remote)
+    if min_salary is not None:
+        q = q.filter(Job.min_amount >= min_salary)
+    if date_from:
+        q = q.filter(Job.date_posted >= date_from)
+    return q
+
+
+def count_jobs(
+    site: Optional[str] = None,
+    title: Optional[str] = None,
+    company: Optional[str] = None,
+    location: Optional[str] = None,
+    is_remote: Optional[bool] = None,
+    min_salary: Optional[float] = None,
+    date_from: Optional[str] = None,
+) -> int:
+    """Return the total number of jobs matching the given filters (no pagination)."""
+    from sqlalchemy import func
+    with SessionLocal() as db:
+        q = db.query(func.count(Job.id))
+        q = _apply_job_filters(q, site, title, company, location, is_remote, min_salary, date_from)
+        return q.scalar() or 0
+
+
 def query_jobs(
     site: Optional[str] = None,
     title: Optional[str] = None,
@@ -262,7 +307,7 @@ def query_jobs(
     is_remote: Optional[bool] = None,
     min_salary: Optional[float] = None,
     date_from: Optional[str] = None,      # "YYYY-MM-DD"
-    limit: int = 100,
+    limit: Optional[int] = 100,
     offset: int = 0,
 ) -> pd.DataFrame:
     """
@@ -270,27 +315,15 @@ def query_jobs(
 
     All string filters use SQL ILIKE (case-insensitive substring match).
     Returns an empty DataFrame when no rows match.
+    Pass limit=None to fetch all matching rows (used for sort-by-match).
     """
     with SessionLocal() as db:
         q = db.query(Job)
-
-        if site:
-            q = q.filter(Job.site == site.lower())
-        if title:
-            q = q.filter(Job.title.ilike(f"%{title}%"))
-        if company:
-            q = q.filter(Job.company.ilike(f"%{company}%"))
-        if location:
-            q = q.filter(Job.location.ilike(f"%{location}%"))
-        if is_remote is not None:
-            q = q.filter(Job.is_remote == is_remote)
-        if min_salary is not None:
-            q = q.filter(Job.min_amount >= min_salary)
-        if date_from:
-            q = q.filter(Job.date_posted >= date_from)
-
+        q = _apply_job_filters(q, site, title, company, location, is_remote, min_salary, date_from)
         q = q.order_by(Job.date_posted.desc().nulls_last(), Job.first_seen_at.desc())
-        q = q.offset(offset).limit(limit)
+
+        if limit is not None:
+            q = q.offset(offset).limit(limit)
 
         rows = q.all()
 
@@ -320,6 +353,122 @@ def delete_job(job_id: str) -> bool:
         db.delete(job)
         db.commit()
         return True
+
+
+class ResumeProfile(Base):
+    __tablename__ = "resume_profiles"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String, unique=True, index=True, nullable=False)
+    file_path = Column(String, nullable=True)
+    original_filename = Column(String, nullable=True)
+    raw_text = Column(Text, nullable=True)
+    parsed_skills = Column(JSON, nullable=True)
+    education = Column(JSON, nullable=True)
+    work_experience = Column(JSON, nullable=True)
+    projects = Column(JSON, nullable=True)
+    volunteer = Column(JSON, nullable=True)
+    certifications = Column(JSON, nullable=True)
+    languages = Column(JSON, nullable=True)
+    linkedin_url = Column(String, nullable=True)
+    github_url = Column(String, nullable=True)
+    raw_sections = Column(JSON, nullable=True)
+    experience_years = Column(Float, nullable=True)
+    name = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    summary = Column(Text, nullable=True)
+    uploaded_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+def save_resume_profile(profile_data: dict, user_id: str = "default") -> ResumeProfile:
+    """Upsert a resume profile for the given user_id."""
+    with SessionLocal() as session:
+        existing = session.query(ResumeProfile).filter_by(user_id=user_id).first()
+        if existing:
+            for key, val in profile_data.items():
+                setattr(existing, key, val)
+            existing.updated_at = datetime.utcnow()
+            session.commit()
+            session.refresh(existing)
+            return existing
+        else:
+            profile = ResumeProfile(user_id=user_id, **profile_data)
+            session.add(profile)
+            session.commit()
+            session.refresh(profile)
+            return profile
+
+
+def get_resume_profile(user_id: str = "default") -> ResumeProfile | None:
+    """Retrieve the resume profile for the given user_id."""
+    with SessionLocal() as session:
+        return session.query(ResumeProfile).filter_by(user_id=user_id).first()
+
+
+class CoverLetter(Base):
+    __tablename__ = "cover_letters"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    job_id = Column(String, index=True, nullable=False)
+    user_id = Column(String, index=True, nullable=False, default="default")
+    cover_letter_text = Column(Text, nullable=False)
+    job_title = Column(String, nullable=True)
+    company_name = Column(String, nullable=True)
+    match_score = Column(Float, nullable=True)
+    generated_at = Column(DateTime, default=datetime.utcnow)
+
+
+def save_cover_letter(
+    job_id: str,
+    cover_letter_text: str,
+    job_title: str | None = None,
+    company_name: str | None = None,
+    match_score: float | None = None,
+    user_id: str = "default",
+) -> CoverLetter:
+    """Save a generated cover letter to the DB. Overwrites if one exists for this job."""
+    with SessionLocal() as session:
+        existing = session.query(CoverLetter).filter_by(job_id=job_id, user_id=user_id).first()
+        if existing:
+            existing.cover_letter_text = cover_letter_text
+            existing.job_title = job_title
+            existing.company_name = company_name
+            existing.match_score = match_score
+            existing.generated_at = datetime.utcnow()
+            session.commit()
+            session.refresh(existing)
+            return existing
+        cl = CoverLetter(
+            job_id=job_id,
+            user_id=user_id,
+            cover_letter_text=cover_letter_text,
+            job_title=job_title,
+            company_name=company_name,
+            match_score=match_score,
+        )
+        session.add(cl)
+        session.commit()
+        session.refresh(cl)
+        return cl
+
+
+def get_cover_letter(job_id: str, user_id: str = "default") -> CoverLetter | None:
+    """Retrieve stored cover letter for a job."""
+    with SessionLocal() as session:
+        return session.query(CoverLetter).filter_by(job_id=job_id, user_id=user_id).first()
+
+
+def list_cover_letters(user_id: str = "default") -> list[CoverLetter]:
+    """List all generated cover letters for the user."""
+    with SessionLocal() as session:
+        return (
+            session.query(CoverLetter)
+            .filter_by(user_id=user_id)
+            .order_by(CoverLetter.generated_at.desc())
+            .all()
+        )
 
 
 def get_sessions(limit: int = 50, offset: int = 0) -> list[dict]:
